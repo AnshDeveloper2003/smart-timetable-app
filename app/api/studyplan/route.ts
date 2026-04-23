@@ -1,5 +1,3 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "../auth/[...nextauth]/route";
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
@@ -9,8 +7,8 @@ const groq = new Groq({
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.accessToken) {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -21,7 +19,7 @@ export async function POST(req: Request) {
 
     const res = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=50&orderBy=startTime&singleEvents=true&timeMin=${now.toISOString()}&timeMax=${weekLater.toISOString()}`,
-      { headers: { Authorization: `Bearer ${session.accessToken}` } }
+      { headers: { Authorization: authHeader } }
     );
     const data = await res.json();
     const events = data.items || [];

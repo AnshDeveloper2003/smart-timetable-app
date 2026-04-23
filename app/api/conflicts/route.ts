@@ -1,5 +1,3 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "../auth/[...nextauth]/route";
 import { NextResponse } from "next/server";
 
 function detectConflicts(events: any[]) {
@@ -12,7 +10,6 @@ function detectConflicts(events: any[]) {
       const aEnd = new Date(a.end?.dateTime || a.end?.date);
       const bStart = new Date(b.start?.dateTime || b.start?.date);
       const bEnd = new Date(b.end?.dateTime || b.end?.date);
-
       if (aStart < bEnd && aEnd > bStart) {
         conflicts.push({
           event1: { title: a.summary, start: aStart, end: aEnd },
@@ -25,15 +22,13 @@ function detectConflicts(events: any[]) {
   return conflicts;
 }
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.accessToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET(req: Request) {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const res = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=50&orderBy=startTime&singleEvents=true&timeMin=${new Date().toISOString()}`,
-    { headers: { Authorization: `Bearer ${session.accessToken}` } }
+    { headers: { Authorization: authHeader } }
   );
   const data = await res.json();
   const conflicts = detectConflicts(data.items || []);

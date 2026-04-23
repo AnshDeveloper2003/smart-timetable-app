@@ -1,9 +1,10 @@
-import { Providers } from "./providers";
+import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "./lib/AuthContext";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Smart Timetable Assistant",
-  description: "AI-Powered Academic Scheduling",
+  description: "AI-Powered Academic Schedule Management",
 };
 
 export default function RootLayout({
@@ -13,8 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        <Providers>{children}</Providers>
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
