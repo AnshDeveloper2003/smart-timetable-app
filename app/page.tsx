@@ -41,10 +41,29 @@ export default function Home() {
   const [isDark, setIsDark] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Level 2 States
+  const [emailInput, setEmailInput] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingWeeklySummary, setSendingWeeklySummary] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [savedPlans, setSavedPlans] = useState<any[]>([]);
+  const [showSavedPlans, setShowSavedPlans] = useState(false);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Load saved plans when user logs in
+  useEffect(() => {
+    if (user?.email) {
+      fetch(`/api/saveplan?email=${user.email}`)
+        .then(res => res.json())
+        .then(data => setSavedPlans(data.plans || []))
+        .catch(() => {});
+    }
+  }, [user]);
 
   const fetchCalendar = async () => {
     setLoadingEvents(true);
@@ -209,6 +228,87 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
+  // Level 2 Functions
+  const sendEmail = async () => {
+    if (!emailInput) return alert("Enter your email!");
+    if (events.length === 0) return alert("Load calendar first!");
+    setSendingEmail(true);
+    try {
+      const res = await fetch('/api/sendemail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: emailInput, events }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEmailSent(true);
+        setTimeout(() => setEmailSent(false), 3000);
+      } else {
+        alert("Failed: " + data.error);
+      }
+    } catch { alert("Failed to send email."); }
+    finally { setSendingEmail(false); }
+  };
+
+  const sendWeeklySummary = async () => {
+    if (!emailInput) return alert("Enter your email first!");
+    setSendingWeeklySummary(true);
+    try {
+      const res = await fetch('/api/weeklysummary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: emailInput, events, analytics }),
+      });
+      const data = await res.json();
+      if (data.success) alert("✅ Weekly summary sent to " + emailInput);
+      else alert("Failed: " + data.error);
+    } catch { alert("Failed to send weekly summary."); }
+    finally { setSendingWeeklySummary(false); }
+  };
+
+  const saveStudyPlan = async () => {
+    if (!studyPlan || !user) return;
+    setSavingPlan(true);
+    try {
+      const res = await fetch('/api/saveplan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.displayName,
+          subject: studySubject,
+          hours: studyHours,
+          plan: studyPlan,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ Study plan saved!");
+        setSavedPlans(prev => [data.plan, ...prev]);
+      }
+    } catch { alert("Failed to save plan."); }
+    finally { setSavingPlan(false); }
+  };
+
+  const connectOutlook = async () => {
+    try {
+      const { loginWithOutlook, fetchOutlookEvents } = await import('./lib/outlook');
+      const token = await loginWithOutlook();
+      const outlookData = await fetchOutlookEvents(token);
+      const formatted = outlookData.map((e: any) => ({
+        id: e.id,
+        summary: e.subject,
+        start: { dateTime: e.start.dateTime },
+        end: { dateTime: e.end.dateTime },
+        source: 'outlook'
+      }));
+      setEvents(prev => [...prev, ...formatted]);
+      alert(`✅ Added ${formatted.length} Outlook events!`);
+    } catch {
+      alert("Failed to connect Outlook. Make sure Azure Client ID is configured.");
+    }
+  };
+
   const nextEvent = events.find((e: any) =>
     new Date(e.start?.dateTime || e.start?.date) > currentTime
   );
@@ -302,6 +402,9 @@ export default function Home() {
                 <button onClick={exportSchedule} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-xl font-bold transition-colors text-sm">
                   📥 Export Schedule
                 </button>
+                <button onClick={connectOutlook} className="bg-blue-800 hover:bg-blue-900 px-4 py-2 rounded-xl font-bold transition-colors text-sm">
+                  📧 Sync Outlook
+                </button>
                 <button onClick={() => signOut()} className={`border ${isDark ? 'border-slate-600 hover:border-red-400 hover:text-red-400' : 'border-gray-300 hover:border-red-400 hover:text-red-500'} px-4 py-2 rounded-xl transition-colors text-sm`}>
                   Sign Out
                 </button>
@@ -360,6 +463,37 @@ export default function Home() {
               </div>
             )}
 
+            {/* Email Notifications — Level 2 */}
+            <div className={`${isDark ? 'bg-slate-800 border-pink-500/30' : 'bg-white border-pink-300'} p-6 rounded-2xl border shadow`}>
+              <h3 className="text-lg font-bold mb-3">📧 Email Notifications</h3>
+              <div className="flex gap-2 flex-wrap">
+                <input
+                  className={`flex-1 min-w-40 p-3 rounded-lg ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-gray-100 border-gray-300 text-gray-900'} border focus:outline-none focus:border-pink-400 text-sm`}
+                  placeholder="Enter your email address"
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                />
+                <button
+                  onClick={sendEmail}
+                  disabled={sendingEmail}
+                  className="bg-pink-600 hover:bg-pink-700 px-4 py-2 rounded-lg font-bold disabled:opacity-50 transition-colors text-sm"
+                >
+                  {sendingEmail ? "Sending..." : emailSent ? "✅ Sent!" : "📧 Send Reminder"}
+                </button>
+                <button
+                  onClick={sendWeeklySummary}
+                  disabled={sendingWeeklySummary}
+                  className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg font-bold disabled:opacity-50 transition-colors text-sm"
+                >
+                  {sendingWeeklySummary ? "Sending..." : "📊 Weekly Summary"}
+                </button>
+              </div>
+              {emailSent && (
+                <p className="text-green-400 text-sm mt-2">✅ Schedule reminder sent to {emailInput}!</p>
+              )}
+            </div>
+
             {/* Study Plan Generator */}
             <div className={`${isDark ? 'bg-slate-800 border-yellow-500/30' : 'bg-white border-yellow-300'} p-6 rounded-2xl border shadow`}>
               <h3 className="text-lg font-bold mb-3">🎓 Smart Study Plan Generator</h3>
@@ -385,6 +519,38 @@ export default function Home() {
                   {loadingStudyPlan ? "Planning..." : "Generate Plan"}
                 </button>
               </div>
+
+              {/* Saved Plans */}
+              {savedPlans.length > 0 && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => setShowSavedPlans(!showSavedPlans)}
+                    className={`text-sm ${isDark ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'} underline`}
+                  >
+                    {showSavedPlans ? "Hide" : "Show"} Saved Plans ({savedPlans.length})
+                  </button>
+                  {showSavedPlans && (
+                    <div className="mt-2 space-y-2">
+                      {savedPlans.map((plan: any) => (
+                        <div key={plan.id} className={`p-3 ${isDark ? 'bg-slate-700' : 'bg-gray-100'} rounded-lg`}>
+                          <div className="flex justify-between items-center">
+                            <p className="font-bold text-sm">{plan.subject} — {plan.hours}h</p>
+                            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                              {new Date(plan.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => { setStudyPlan(plan.plan); setStudySubject(plan.subject); setActiveTab('study'); }}
+                            className="text-xs text-blue-400 hover:text-blue-300 underline mt-1"
+                          >
+                            Load this plan
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* AI Chat */}
@@ -446,7 +612,12 @@ export default function Home() {
                     .filter((e: any) => e.summary?.toLowerCase().includes(searchQuery.toLowerCase()))
                     .map((event: any) => (
                       <div key={event.id} className={`p-4 ${isDark ? 'bg-slate-800/50 border-slate-700 hover:border-blue-500/50' : 'bg-white border-gray-200 hover:border-blue-400'} border rounded-xl transition-colors`}>
-                        <p className="font-bold text-blue-300">{event.summary}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-blue-300">{event.summary}</p>
+                          {event.source === 'outlook' && (
+                            <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">Outlook</span>
+                          )}
+                        </div>
                         <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-400'} mt-1`}>
                           📅 {new Date(event.start?.dateTime || event.start?.date).toLocaleString()}
                         </p>
@@ -576,14 +747,23 @@ export default function Home() {
                   </p>
                 ) : (
                   <div className={`p-6 ${isDark ? 'bg-yellow-900/20 border-yellow-500/30' : 'bg-yellow-50 border-yellow-300'} border rounded-xl`}>
-                    <div className="flex justify-between items-center mb-3">
+                    <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
                       <p className="text-yellow-400 font-bold">🎓 Your Personalized Study Plan</p>
-                      <button
-                        onClick={exportStudyPlan}
-                        className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded-lg text-xs font-bold transition-colors"
-                      >
-                        📄 Export
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={exportStudyPlan}
+                          className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded-lg text-xs font-bold transition-colors"
+                        >
+                          📄 Export
+                        </button>
+                        <button
+                          onClick={saveStudyPlan}
+                          disabled={savingPlan}
+                          className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                        >
+                          {savingPlan ? "Saving..." : "💾 Save"}
+                        </button>
+                      </div>
                     </div>
                     <p className={`${isDark ? 'text-slate-200' : 'text-gray-700'} whitespace-pre-wrap text-sm`}>{studyPlan}</p>
                   </div>
