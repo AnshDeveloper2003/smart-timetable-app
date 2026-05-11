@@ -1,0 +1,36 @@
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+class DateTimeExample {
+    public static void main(String[] args) {
+
+        LocalDate currentDate = LocalDate.now();
+        System.out.println("Current Date: " + currentDate);
+
+        // Current Time
+        LocalTime currentTime = LocalTime.now();
+        System.out.println("Current Time: " + currentTime);
+
+        // Current Date and Time
+        LocalDateTime currentDateTime = LocalDateTime.now();
+        System.out.println("Current Date and Time: " + currentDateTime);
+
+        // Formatting Date and Time
+        DateTimeFormatter formatter =
+                DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+
+        String formattedDateTime =
+                currentDateTime.format(formatter);
+
+        System.out.println("Formatted Date and Time: " + formattedDateTime);
+
+        // Adding Days
+        LocalDate nextWeek = currentDate.plusDays(7);
+        System.out.println("Date After 7 Days: " + nextWeek);
+
+        // Subtracting Months
+        LocalDate previousMonth = currentDate.minusMonths(1);
+        System.out.println("Previous Month Date: " + previousMonth);
+    }
+}
