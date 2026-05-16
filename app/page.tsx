@@ -52,6 +52,10 @@ export default function Home() {
   const [loadingPredictions, setLoadingPredictions] = useState(false);
   const [patterns, setPatterns] = useState<any>(null);
   const [isListening, setIsListening] = useState(false);
+  // Level 4 States
+  const [productivityScore, setProductivityScore] = useState<any>(null);
+  const [loadingScore, setLoadingScore] = useState(false);
+  const [useAgent, setUseAgent] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -175,6 +179,21 @@ export default function Home() {
     finally { setLoadingPredictions(false); }
   };
 
+  const fetchProductivityScore = async () => {
+    setLoadingScore(true);
+    try {
+      const token = getToken();
+      if (!token) return alert("Please sign in again!");
+      const res = await fetch('/api/productivity', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setProductivityScore(data);
+    } catch { alert("Failed to get productivity score."); }
+    finally { setLoadingScore(false); }
+  };
+
   const generateStudyPlan = async () => {
     if (!studySubject) return alert("Please enter a subject!");
     setLoadingStudyPlan(true);
@@ -201,9 +220,14 @@ export default function Home() {
     setInput("");
     setIsAiThinking(true);
     try {
-      const res = await fetch('/api/chat', {
+      const endpoint = useAgent ? '/api/agent' : '/api/chat';
+      const token = getToken();
+      const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(useAgent && token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           messages: newHistory,
           calendarData: events,
@@ -213,9 +237,15 @@ export default function Home() {
         }),
       });
       const data = await res.json();
-      setChatHistory(prev => [...prev, { role: "assistant", content: data.text || data.error }]);
+      setChatHistory(prev => [...prev, {
+        role: "assistant",
+        content: data.text || data.error
+      }]);
     } catch {
-      setChatHistory(prev => [...prev, { role: "assistant", content: "Sorry, I couldn't process that." }]);
+      setChatHistory(prev => [...prev, {
+        role: "assistant",
+        content: "Sorry, I couldn't process that."
+      }]);
     } finally { setIsAiThinking(false); }
   };
 
@@ -392,7 +422,7 @@ export default function Home() {
         ) : (
           <div className="space-y-6">
 
-            {/* Header Buttons */}
+            {/* Header */}
             <div className={`${isDark ? 'bg-slate-800 border-emerald-500/30' : 'bg-white border-emerald-300'} p-6 rounded-2xl border shadow`}>
               <div className="flex items-center justify-center gap-3 mb-4">
                 {user.photoURL && <img src={user.photoURL} alt="Profile" className="w-9 h-9 rounded-full border-2 border-emerald-400" />}
@@ -422,6 +452,9 @@ export default function Home() {
                 </button>
                 <button onClick={fetchPredictions} className="bg-pink-600 hover:bg-pink-700 px-4 py-2 rounded-xl font-bold transition-colors text-sm">
                   {loadingPredictions ? "Analyzing..." : "🔮 Predict"}
+                </button>
+                <button onClick={fetchProductivityScore} className="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-xl font-bold transition-colors text-sm">
+                  {loadingScore ? "Calculating..." : "🏆 Score"}
                 </button>
                 <button onClick={exportSchedule} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-xl font-bold transition-colors text-sm">
                   📥 Export
@@ -490,6 +523,45 @@ export default function Home() {
               </div>
             )}
 
+            {/* Productivity Score */}
+            {productivityScore && (
+              <div className={`${isDark ? 'bg-slate-800 border-emerald-500/30' : 'bg-white border-emerald-300'} p-6 border rounded-xl shadow`}>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold">🏆 Productivity Score</h3>
+                  <button onClick={() => setProductivityScore(null)} className="text-xs text-slate-500 hover:text-slate-300 underline">Dismiss</button>
+                </div>
+                <div className="flex items-center gap-6 mb-4">
+                  <div className={`w-24 h-24 rounded-full border-4 border-${productivityScore.color}-400 flex flex-col items-center justify-center`}>
+                    <p className={`text-3xl font-black text-${productivityScore.color}-400`}>{productivityScore.score}</p>
+                    <p className={`text-sm font-bold text-${productivityScore.color}-400`}>{productivityScore.grade}</p>
+                  </div>
+                  <div>
+                    <p className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-800'}`}>{productivityScore.message}</p>
+                    <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'} mt-1`}>
+                      {productivityScore.totalEvents} events in 30 days •{' '}
+                      {productivityScore.weeklyEvents} this week •{' '}
+                      {productivityScore.daysWithEvents} active days
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {productivityScore.breakdown?.map((item: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-lg">{item.icon}</span>
+                      <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-gray-600'} w-44`}>{item.label}</span>
+                      <div className={`flex-1 ${isDark ? 'bg-slate-700' : 'bg-gray-200'} rounded-full h-3`}>
+                        <div className="bg-emerald-500 h-3 rounded-full transition-all"
+                          style={{ width: `${(item.score / item.max) * 100}%` }} />
+                      </div>
+                      <span className={`text-sm font-bold ${isDark ? 'text-slate-300' : 'text-gray-600'} w-12 text-right`}>
+                        {item.score}/{item.max}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Email */}
             <div className={`${isDark ? 'bg-slate-800 border-pink-500/30' : 'bg-white border-pink-300'} p-6 rounded-2xl border shadow`}>
               <h3 className="text-lg font-bold mb-3">📧 Email Notifications</h3>
@@ -513,7 +585,7 @@ export default function Home() {
               {emailSent && <p className="text-green-400 text-sm mt-2">✅ Reminder sent to {emailInput}!</p>}
             </div>
 
-            {/* Study Plan Generator */}
+            {/* Study Plan */}
             <div className={`${isDark ? 'bg-slate-800 border-yellow-500/30' : 'bg-white border-yellow-300'} p-6 rounded-2xl border shadow`}>
               <h3 className="text-lg font-bold mb-3">🎓 Smart Study Plan Generator</h3>
               <div className="flex gap-2 flex-wrap">
@@ -559,9 +631,9 @@ export default function Home() {
               )}
             </div>
 
-            {/* AI Chat - Multi-turn */}
+            {/* AI Chat */}
             <div className={`${isDark ? 'bg-slate-800 border-blue-500' : 'bg-white border-blue-400'} p-6 rounded-2xl border shadow-lg shadow-blue-500/10`}>
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-3">
                 <h3 className="text-xl font-bold">🤖 Ask about your schedule</h3>
                 {chatHistory.length > 0 && (
                   <button onClick={() => setChatHistory([])} className="text-xs text-slate-500 hover:text-red-400 underline">
@@ -570,6 +642,21 @@ export default function Home() {
                 )}
               </div>
 
+              {/* Agent Mode Toggle */}
+              <div className="flex items-center gap-2 mb-3">
+                <button onClick={() => setUseAgent(!useAgent)}
+                  className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                    useAgent ? 'bg-violet-600 text-white' : `${isDark ? 'bg-slate-700 text-slate-400' : 'bg-gray-200 text-gray-500'}`
+                  }`}>
+                  <span className={`w-2 h-2 rounded-full ${useAgent ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`}></span>
+                  {useAgent ? "LangChain Agent Active" : "Standard AI Mode"}
+                </button>
+                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+                  {useAgent ? "Using advanced LangChain agent" : "Click to enable agent"}
+                </span>
+              </div>
+
+              {/* Chat History */}
               {chatHistory.length > 0 && (
                 <div className={`mb-4 max-h-80 overflow-y-auto space-y-3 p-3 rounded-lg ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
                   {chatHistory.map((msg, i) => (
@@ -580,7 +667,9 @@ export default function Home() {
                           : `${isDark ? 'bg-slate-700 text-slate-200' : 'bg-white text-gray-700 border border-gray-200'} rounded-bl-none`
                       }`}>
                         {msg.role === 'assistant' && (
-                          <p className="text-emerald-400 text-xs font-bold mb-1">AI Assistant</p>
+                          <p className="text-emerald-400 text-xs font-bold mb-1">
+                            {useAgent ? "🤖 LangChain Agent" : "AI Assistant"}
+                          </p>
                         )}
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                       </div>
@@ -600,6 +689,7 @@ export default function Home() {
                 </div>
               )}
 
+              {/* Input */}
               <div className="flex gap-2">
                 <input
                   className={`flex-1 p-3 rounded-lg ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-gray-100 border-gray-300 text-gray-900'} border focus:outline-none focus:border-blue-400`}
