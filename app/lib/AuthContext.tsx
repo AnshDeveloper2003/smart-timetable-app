@@ -11,6 +11,7 @@ import {
 interface AuthContextType {
   user: User | null;
   accessToken: string | null;
+  dbUser: any | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -19,6 +20,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   accessToken: null,
+  dbUser: null,
   loading: true,
   signIn: async () => {},
   signOut: async () => {},
@@ -27,15 +29,42 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [dbUser, setDbUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        await syncUserToDatabase(firebaseUser);
+      } else {
+        setDbUser(null);
+      }
       setLoading(false);
     });
     return unsubscribe;
   }, []);
+
+  const syncUserToDatabase = async (firebaseUser: User) => {
+    try {
+      const res = await fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: firebaseUser.email,
+          name: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          googleId: firebaseUser.uid,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDbUser(data.user);
+      }
+    } catch (error: any) {
+      console.error("DB Sync error:", error.message);
+    }
+  };
 
   const signIn = async () => {
     try {
@@ -45,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAccessToken(token);
         sessionStorage.setItem('googleAccessToken', token);
       }
+      await syncUserToDatabase(result.user);
     } catch (error: any) {
       console.error("Sign in error:", error.message);
     }
@@ -53,11 +83,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     await firebaseSignOut(auth);
     setAccessToken(null);
+    setDbUser(null);
     sessionStorage.removeItem('googleAccessToken');
   };
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, accessToken, dbUser, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

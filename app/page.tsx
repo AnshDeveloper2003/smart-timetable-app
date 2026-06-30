@@ -55,6 +55,9 @@ export default function Home() {
   const [loadingScore, setLoadingScore] = useState(false);
   const [useAgent, setUseAgent] = useState(false);
   const [activeSidebarItem, setActiveSidebarItem] = useState('calendar');
+  const [batchEvents, setBatchEvents] = useState<any[]>([]);
+  const [batchName, setBatchName] = useState<string | null>(null);
+  const [loadingBatchEvents, setLoadingBatchEvents] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -67,6 +70,12 @@ export default function Home() {
         .then(res => res.json())
         .then(data => setSavedPlans(data.plans || []))
         .catch(() => {});
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.email) {
+      fetchBatchEvents();
     }
   }, [user]);
 
@@ -88,6 +97,21 @@ export default function Home() {
       else setEvents(data.items || []);
     } catch { alert("Failed to fetch calendar."); }
     finally { setLoadingEvents(false); }
+  };
+
+  const fetchBatchEvents = async () => {
+    if (!user?.email) return;
+    setLoadingBatchEvents(true);
+    try {
+      const res = await fetch(`/api/admin/batch-events?email=${encodeURIComponent(user.email)}`);
+      const data = await res.json();
+      setBatchEvents(data.events || []);
+      setBatchName(data.batchName || null);
+    } catch (err) {
+      console.error("Failed to fetch batch events:", err);
+    } finally {
+      setLoadingBatchEvents(false);
+    }
   };
 
   const fetchConflicts = async () => {
@@ -581,6 +605,45 @@ export default function Home() {
           </div>
         )}
 
+        {/* Batch Schedule (Faculty-assigned events) */}
+        {batchEvents.length > 0 && (
+          <div style={{ background: 'rgba(99,102,241,0.06)', border: '0.5px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <span style={{ fontSize: 14, fontWeight: 500, color: '#A5B4FC' }}>🏫 {batchName} — Batch Schedule</span>
+              <span style={{ fontSize: 11, color: '#6B7A99' }}>{batchEvents.length} event{batchEvents.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {batchEvents.map((event: any) => {
+                const typeColor =
+                  event.type === 'exam' ? '#F87171' :
+                  event.type === 'holiday' ? '#34D399' :
+                  event.type === 'deadline' ? '#FCD34D' : '#6366F1';
+                return (
+                  <div key={event.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: '#C5D0E8', fontWeight: 500 }}>{event.title}</div>
+                      {event.description && <div style={{ fontSize: 11, color: '#8899BB', marginTop: 2 }}>{event.description}</div>}
+                      <div style={{ fontSize: 11, color: '#4A5568', marginTop: 4 }}>
+                        {new Date(event.startTime).toLocaleString()} — {new Date(event.endTime).toLocaleString()}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 6, background: `${typeColor}18`, color: typeColor, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      {event.type}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* No batch assigned message */}
+        {batchEvents.length === 0 && !loadingBatchEvents && (
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 20px', marginBottom: 20, fontSize: 12, color: '#4A5568' }}>
+            🏫 No batch assigned yet — your faculty hasn't added you to a class group.
+          </div>
+        )}
+
         {/* Calendar View */}
         {showCalendarView && (
           <div style={{ marginBottom: 20 }}>
@@ -945,4 +1008,4 @@ export default function Home() {
       </div>
     </div>
   );
-}
+} 

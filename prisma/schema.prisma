@@ -7,12 +7,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  STUDENT
+  FACULTY
+  ADMIN
+}
+
 model User {
-  id         String      @id @default(cuid())
-  email      String      @unique
-  name       String?
-  createdAt  DateTime    @default(now())
-  studyPlans StudyPlan[]
+  id          String      @id @default(cuid())
+  email       String      @unique
+  name        String?
+  photoURL    String?
+  role        Role        @default(STUDENT)
+  googleId    String?     @unique
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt @default(now())
+
+  batchId     String?
+  batch       Batch?      @relation(fields: [batchId], references: [id])
+
+  studyPlans  StudyPlan[]
+  preferences UserPreference?
+}
+
+model Batch {
+  id          String   @id @default(cuid())
+  name        String   // e.g. "MCA 2025-2027"
+  department  String   // e.g. "MCA"
+  year        Int      // e.g. 2025
+  createdAt   DateTime @default(now())
+
+  users       User[]
+  events      BatchEvent[]
+}
+
+model BatchEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  type        String   // "class", "exam", "holiday", "deadline"
+  createdAt   DateTime @default(now())
+
+  batchId     String
+  batch       Batch    @relation(fields: [batchId], references: [id])
 }
 
 model StudyPlan {
@@ -21,6 +60,17 @@ model StudyPlan {
   hours     Int
   plan      String
   createdAt DateTime @default(now())
+
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model UserPreference {
+  id              String   @id @default(cuid())
+  theme           String   @default("dark")
+  notifyEmail     Boolean  @default(true)
+  notifyWhatsapp  Boolean  @default(false)
+
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
 }
