@@ -20,6 +20,12 @@ export default function AdminDashboard() {
   const [selectedBatchId, setSelectedBatchId] = useState("");
   const [assigning, setAssigning] = useState(false);
 
+  // Bulk import
+  const [bulkEmails, setBulkEmails] = useState("");
+  const [bulkBatchId, setBulkBatchId] = useState("");
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkResult, setBulkResult] = useState<any>(null);
+
   // Add event form
   const [eventBatchId, setEventBatchId] = useState("");
   const [eventTitle, setEventTitle] = useState("");
@@ -125,6 +131,44 @@ export default function AdminDashboard() {
       showMessage('Network error assigning student', 'error');
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (!bulkEmails.trim() || !bulkBatchId) {
+      return showMessage('Paste emails and select a batch', 'error');
+    }
+    setBulkImporting(true);
+    setBulkResult(null);
+    try {
+      const emails = bulkEmails
+        .split(/[\n,;]+/)
+        .map(e => e.trim())
+        .filter(e => e.length > 0);
+
+      const res = await fetch('/api/admin/bulk-assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emails,
+          batchId: bulkBatchId,
+          requesterEmail: user?.email,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBulkResult(data);
+        showMessage(`Imported ${data.summary.total} students!`, 'success');
+        setBulkEmails("");
+        fetchBatches();
+        fetchStudents();
+      } else {
+        showMessage(data.error || 'Bulk import failed', 'error');
+      }
+    } catch {
+      showMessage('Network error during bulk import', 'error');
+    } finally {
+      setBulkImporting(false);
     }
   };
 
@@ -281,6 +325,65 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Bulk Student Import */}
+        <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(52,211,153,0.2)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#6EE7B7', marginBottom: 6 }}>
+            📋 Bulk Student Import
+          </div>
+          <div style={{ fontSize: 11, color: '#4A5568', marginBottom: 14 }}>
+            Paste a list of student emails — one per line, or comma/semicolon separated. Students who haven't signed up yet will be pre-registered automatically.
+          </div>
+
+          <select value={bulkBatchId} onChange={e => setBulkBatchId(e.target.value)} style={inputStyle}>
+            <option value="">Select batch to assign all students to...</option>
+            {batches.map((b: any) => (
+              <option key={b.id} value={b.id}>{b.name} ({b.department} {b.year})</option>
+            ))}
+          </select>
+
+          <textarea
+            value={bulkEmails}
+            onChange={e => setBulkEmails(e.target.value)}
+            placeholder={`student1@email.com\nstudent2@email.com\nstudent3@email.com\n\nOr paste comma-separated:\nstudent1@email.com, student2@email.com`}
+            rows={6}
+            style={{ ...inputStyle, resize: 'vertical' as const }}
+          />
+
+          <button
+            onClick={handleBulkImport}
+            disabled={bulkImporting}
+            style={{ ...primaryBtnStyle, background: 'rgba(52,211,153,0.15)', border: '0.5px solid rgba(52,211,153,0.3)', color: '#6EE7B7' }}
+          >
+            {bulkImporting ? 'Importing...' : '📋 Import All Students'}
+          </button>
+
+          {/* Results */}
+          {bulkResult && (
+            <div style={{ marginTop: 14, background: 'rgba(52,211,153,0.06)', border: '0.5px solid rgba(52,211,153,0.15)', borderRadius: 8, padding: 14 }}>
+              <div style={{ fontSize: 12, color: '#6EE7B7', fontWeight: 500, marginBottom: 8 }}>
+                Import Summary
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+                {[
+                  { label: 'Assigned', value: bulkResult.summary.assigned, color: '#34D399' },
+                  { label: 'Pre-registered', value: bulkResult.summary.created, color: '#A5B4FC' },
+                  { label: 'Failed', value: bulkResult.summary.failed, color: '#F87171' },
+                ].map((s, i) => (
+                  <div key={i} style={{ textAlign: 'center', padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</div>
+                    <div style={{ fontSize: 10, color: '#6B7A99', marginTop: 2 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              {bulkResult.details.failed.length > 0 && (
+                <div style={{ fontSize: 11, color: '#F87171' }}>
+                  Failed: {bulkResult.details.failed.join(', ')}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Add Event */}
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#A5B4FC', marginBottom: 14 }}>📅 Push Event to Batch (Exam / Class / Holiday / Deadline)</div>
@@ -297,8 +400,19 @@ export default function AdminDashboard() {
               <option value="holiday">Holiday</option>
               <option value="deadline">Deadline</option>
             </select>
-            <input value={eventTitle} onChange={e => setEventTitle(e.target.value)} placeholder="Event title" style={{ ...inputStyle, gridColumn: 'span 2' }} />
-            <textarea value={eventDesc} onChange={e => setEventDesc(e.target.value)} placeholder="Description (optional)" rows={2} style={{ ...inputStyle, gridColumn: 'span 2', resize: 'vertical' as const }} />
+            <input
+              value={eventTitle}
+              onChange={e => setEventTitle(e.target.value)}
+              placeholder="Event title"
+              style={{ ...inputStyle, gridColumn: 'span 2' }}
+            />
+            <textarea
+              value={eventDesc}
+              onChange={e => setEventDesc(e.target.value)}
+              placeholder="Description (optional)"
+              rows={2}
+              style={{ ...inputStyle, gridColumn: 'span 2', resize: 'vertical' as const }}
+            />
             <div>
               <label style={labelStyle}>Start Time</label>
               <input value={eventStart} onChange={e => setEventStart(e.target.value)} type="datetime-local" style={inputStyle} />
@@ -308,7 +422,11 @@ export default function AdminDashboard() {
               <input value={eventEnd} onChange={e => setEventEnd(e.target.value)} type="datetime-local" style={inputStyle} />
             </div>
           </div>
-          <button onClick={handleAddEvent} disabled={addingEvent} style={{ ...primaryBtnStyle, marginTop: 12, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
+          <button
+            onClick={handleAddEvent}
+            disabled={addingEvent}
+            style={{ ...primaryBtnStyle, marginTop: 12, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}
+          >
             {addingEvent ? 'Adding...' : '+ Push Event to Batch'}
           </button>
         </div>
@@ -365,7 +483,9 @@ export default function AdminDashboard() {
                         {batch.events.map((e: any) => (
                           <div key={e.id} style={{ fontSize: 11, color: '#8899BB' }}>
                             <span style={{
-                              color: e.type === 'exam' ? '#F87171' : e.type === 'holiday' ? '#34D399' : e.type === 'deadline' ? '#FCD34D' : '#A5B4FC'
+                              color: e.type === 'exam' ? '#F87171' :
+                                     e.type === 'holiday' ? '#34D399' :
+                                     e.type === 'deadline' ? '#FCD34D' : '#A5B4FC'
                             }}>● {e.type}</span> — {e.title} ({new Date(e.startTime).toLocaleDateString()})
                           </div>
                         ))}
@@ -382,7 +502,7 @@ export default function AdminDashboard() {
   );
 }
 
-const inputStyle = {
+const inputStyle: React.CSSProperties = {
   width: '100%',
   background: 'rgba(255,255,255,0.04)',
   border: '0.5px solid rgba(255,255,255,0.1)',
@@ -394,14 +514,14 @@ const inputStyle = {
   marginBottom: 10,
 };
 
-const labelStyle = {
+const labelStyle: React.CSSProperties = {
   fontSize: 10,
   color: '#6B7A99',
   marginBottom: 4,
   display: 'block',
 };
 
-const primaryBtnStyle = {
+const primaryBtnStyle: React.CSSProperties = {
   width: '100%',
   background: 'rgba(99,102,241,0.15)',
   border: '0.5px solid rgba(99,102,241,0.3)',
