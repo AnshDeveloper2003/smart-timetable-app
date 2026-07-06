@@ -35,6 +35,16 @@ export default function AdminDashboard() {
   const [eventEnd, setEventEnd] = useState("");
   const [addingEvent, setAddingEvent] = useState(false);
 
+  // Edit event
+  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editType, setEditType] = useState("class");
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const showMessage = (text: string, type: 'success' | 'error') => {
@@ -206,6 +216,66 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleEditEvent = async () => {
+    if (!editingEvent || !editTitle || !editStart || !editEnd) {
+      return showMessage('Fill all required fields', 'error');
+    }
+    setSavingEdit(true);
+    try {
+      const res = await fetch('/api/admin/batch-events', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: editingEvent.id,
+          title: editTitle,
+          description: editDesc,
+          startTime: new Date(editStart).toISOString(),
+          endTime: new Date(editEnd).toISOString(),
+          type: editType,
+          requesterEmail: user?.email,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showMessage('Event updated!', 'success');
+        setEditingEvent(null);
+        fetchBatches();
+      } else {
+        showMessage(data.error || 'Failed to update event', 'error');
+      }
+    } catch {
+      showMessage('Network error updating event', 'error');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!confirm('Are you sure you want to delete this event?')) return;
+    setDeletingEventId(eventId);
+    try {
+      const res = await fetch('/api/admin/batch-events', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          requesterEmail: user?.email,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showMessage('Event deleted!', 'success');
+        fetchBatches();
+      } else {
+        showMessage(data.error || 'Failed to delete event', 'error');
+      }
+    } catch {
+      showMessage('Network error deleting event', 'error');
+    } finally {
+      setDeletingEventId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', background: '#060A14', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7A99' }}>
@@ -261,7 +331,7 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* Toast message */}
+      {/* Toast */}
       {message && (
         <div style={{
           position: 'fixed', top: 20, right: 20, zIndex: 50,
@@ -276,27 +346,15 @@ export default function AdminDashboard() {
 
       <div style={{ padding: 32, maxWidth: 1100, margin: '0 auto' }}>
 
-        {/* Top Row: Create Batch + Assign Student */}
+        {/* Create Batch + Assign Student */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
 
           {/* Create Batch */}
           <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: '#8899BB', marginBottom: 14 }}>🏫 Create New Batch</div>
-            <input
-              value={batchName} onChange={e => setBatchName(e.target.value)}
-              placeholder="Batch name (e.g. MCA 2025-2027)"
-              style={inputStyle}
-            />
-            <input
-              value={batchDept} onChange={e => setBatchDept(e.target.value)}
-              placeholder="Department (e.g. MCA)"
-              style={inputStyle}
-            />
-            <input
-              value={batchYear} onChange={e => setBatchYear(e.target.value)}
-              placeholder="Year (e.g. 2025)" type="number"
-              style={inputStyle}
-            />
+            <input value={batchName} onChange={e => setBatchName(e.target.value)} placeholder="Batch name (e.g. MCA 2025-2027)" style={inputStyle} />
+            <input value={batchDept} onChange={e => setBatchDept(e.target.value)} placeholder="Department (e.g. MCA)" style={inputStyle} />
+            <input value={batchYear} onChange={e => setBatchYear(e.target.value)} placeholder="Year (e.g. 2025)" type="number" style={inputStyle} />
             <button onClick={handleCreateBatch} disabled={creatingBatch} style={primaryBtnStyle}>
               {creatingBatch ? 'Creating...' : '+ Create Batch'}
             </button>
@@ -327,28 +385,23 @@ export default function AdminDashboard() {
 
         {/* Bulk Student Import */}
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(52,211,153,0.2)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#6EE7B7', marginBottom: 6 }}>
-            📋 Bulk Student Import
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#6EE7B7', marginBottom: 6 }}>📋 Bulk Student Import</div>
           <div style={{ fontSize: 11, color: '#4A5568', marginBottom: 14 }}>
             Paste a list of student emails — one per line, or comma/semicolon separated. Students who haven't signed up yet will be pre-registered automatically.
           </div>
-
           <select value={bulkBatchId} onChange={e => setBulkBatchId(e.target.value)} style={inputStyle}>
             <option value="">Select batch to assign all students to...</option>
             {batches.map((b: any) => (
               <option key={b.id} value={b.id}>{b.name} ({b.department} {b.year})</option>
             ))}
           </select>
-
           <textarea
             value={bulkEmails}
             onChange={e => setBulkEmails(e.target.value)}
-            placeholder={`student1@email.com\nstudent2@email.com\nstudent3@email.com\n\nOr paste comma-separated:\nstudent1@email.com, student2@email.com`}
+            placeholder={`student1@email.com\nstudent2@email.com\nstudent3@email.com`}
             rows={6}
             style={{ ...inputStyle, resize: 'vertical' as const }}
           />
-
           <button
             onClick={handleBulkImport}
             disabled={bulkImporting}
@@ -357,12 +410,9 @@ export default function AdminDashboard() {
             {bulkImporting ? 'Importing...' : '📋 Import All Students'}
           </button>
 
-          {/* Results */}
           {bulkResult && (
             <div style={{ marginTop: 14, background: 'rgba(52,211,153,0.06)', border: '0.5px solid rgba(52,211,153,0.15)', borderRadius: 8, padding: 14 }}>
-              <div style={{ fontSize: 12, color: '#6EE7B7', fontWeight: 500, marginBottom: 8 }}>
-                Import Summary
-              </div>
+              <div style={{ fontSize: 12, color: '#6EE7B7', fontWeight: 500, marginBottom: 8 }}>Import Summary</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
                 {[
                   { label: 'Assigned', value: bulkResult.summary.assigned, color: '#34D399' },
@@ -386,7 +436,7 @@ export default function AdminDashboard() {
 
         {/* Add Event */}
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#A5B4FC', marginBottom: 14 }}>📅 Push Event to Batch (Exam / Class / Holiday / Deadline)</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#A5B4FC', marginBottom: 14 }}>📅 Push Event to Batch</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <select value={eventBatchId} onChange={e => setEventBatchId(e.target.value)} style={inputStyle}>
               <option value="">Select batch...</option>
@@ -400,19 +450,8 @@ export default function AdminDashboard() {
               <option value="holiday">Holiday</option>
               <option value="deadline">Deadline</option>
             </select>
-            <input
-              value={eventTitle}
-              onChange={e => setEventTitle(e.target.value)}
-              placeholder="Event title"
-              style={{ ...inputStyle, gridColumn: 'span 2' }}
-            />
-            <textarea
-              value={eventDesc}
-              onChange={e => setEventDesc(e.target.value)}
-              placeholder="Description (optional)"
-              rows={2}
-              style={{ ...inputStyle, gridColumn: 'span 2', resize: 'vertical' as const }}
-            />
+            <input value={eventTitle} onChange={e => setEventTitle(e.target.value)} placeholder="Event title" style={{ ...inputStyle, gridColumn: 'span 2' }} />
+            <textarea value={eventDesc} onChange={e => setEventDesc(e.target.value)} placeholder="Description (optional)" rows={2} style={{ ...inputStyle, gridColumn: 'span 2', resize: 'vertical' as const }} />
             <div>
               <label style={labelStyle}>Start Time</label>
               <input value={eventStart} onChange={e => setEventStart(e.target.value)} type="datetime-local" style={inputStyle} />
@@ -422,11 +461,7 @@ export default function AdminDashboard() {
               <input value={eventEnd} onChange={e => setEventEnd(e.target.value)} type="datetime-local" style={inputStyle} />
             </div>
           </div>
-          <button
-            onClick={handleAddEvent}
-            disabled={addingEvent}
-            style={{ ...primaryBtnStyle, marginTop: 12, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}
-          >
+          <button onClick={handleAddEvent} disabled={addingEvent} style={{ ...primaryBtnStyle, marginTop: 12, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
             {addingEvent ? 'Adding...' : '+ Push Event to Batch'}
           </button>
         </div>
@@ -479,14 +514,38 @@ export default function AdminDashboard() {
                   {batch.events?.length > 0 && (
                     <div>
                       <div style={{ fontSize: 10, color: '#4A5568', marginBottom: 4 }}>EVENTS</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {batch.events.map((e: any) => (
-                          <div key={e.id} style={{ fontSize: 11, color: '#8899BB' }}>
-                            <span style={{
-                              color: e.type === 'exam' ? '#F87171' :
-                                     e.type === 'holiday' ? '#34D399' :
-                                     e.type === 'deadline' ? '#FCD34D' : '#A5B4FC'
-                            }}>● {e.type}</span> — {e.title} ({new Date(e.startTime).toLocaleDateString()})
+                          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: '#8899BB', padding: '4px 0', borderBottom: '0.5px solid rgba(255,255,255,0.04)' }}>
+                            <span>
+                              <span style={{
+                                color: e.type === 'exam' ? '#F87171' :
+                                       e.type === 'holiday' ? '#34D399' :
+                                       e.type === 'deadline' ? '#FCD34D' : '#A5B4FC'
+                              }}>● {e.type}</span> — {e.title} ({new Date(e.startTime).toLocaleDateString()})
+                            </span>
+                            <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                              <button
+                                onClick={() => {
+                                  setEditingEvent(e);
+                                  setEditTitle(e.title);
+                                  setEditDesc(e.description || "");
+                                  setEditType(e.type);
+                                  setEditStart(new Date(e.startTime).toISOString().slice(0, 16));
+                                  setEditEnd(new Date(e.endTime).toISOString().slice(0, 16));
+                                }}
+                                style={{ background: 'rgba(99,102,241,0.1)', border: '0.5px solid rgba(99,102,241,0.25)', color: '#A5B4FC', padding: '2px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}
+                              >
+                                ✏️ Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteEvent(e.id)}
+                                disabled={deletingEventId === e.id}
+                                style={{ background: 'rgba(239,68,68,0.1)', border: '0.5px solid rgba(239,68,68,0.25)', color: '#F87171', padding: '2px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}
+                              >
+                                {deletingEventId === e.id ? '...' : '🗑 Delete'}
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -498,6 +557,51 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* Edit Event Modal */}
+      {editingEvent && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: '#0D1628', border: '0.5px solid rgba(99,102,241,0.3)', borderRadius: 14, padding: 28, width: 480, maxWidth: '90vw' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <span style={{ fontSize: 14, fontWeight: 500, color: '#A5B4FC' }}>✏️ Edit Event</span>
+              <button onClick={() => setEditingEvent(null)} style={{ background: 'none', border: 'none', color: '#4A5568', cursor: 'pointer', fontSize: 18 }}>✕</button>
+            </div>
+
+            <select value={editType} onChange={e => setEditType(e.target.value)} style={inputStyle}>
+              <option value="class">Class</option>
+              <option value="exam">Exam</option>
+              <option value="holiday">Holiday</option>
+              <option value="deadline">Deadline</option>
+            </select>
+
+            <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Event title" style={inputStyle} />
+
+            <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} placeholder="Description (optional)" rows={2} style={{ ...inputStyle, resize: 'vertical' as const }} />
+
+            <label style={labelStyle}>Start Time</label>
+            <input value={editStart} onChange={e => setEditStart(e.target.value)} type="datetime-local" style={inputStyle} />
+
+            <label style={labelStyle}>End Time</label>
+            <input value={editEnd} onChange={e => setEditEnd(e.target.value)} type="datetime-local" style={inputStyle} />
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              <button
+                onClick={() => setEditingEvent(null)}
+                style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', color: '#6B7A99', padding: '10px', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditEvent}
+                disabled={savingEdit}
+                style={{ flex: 2, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', border: 'none', color: 'white', padding: '10px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 500 }}
+              >
+                {savingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
