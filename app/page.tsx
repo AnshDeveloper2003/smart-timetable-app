@@ -34,7 +34,7 @@ export default function Home() {
   const [studyHours, setStudyHours] = useState("3");
   const [studyPlan, setStudyPlan] = useState("");
   const [loadingStudyPlan, setLoadingStudyPlan] = useState(false);
-  const [activeTab, setActiveTab] = useState<'calendar'|'conflicts'|'slots'|'tasks'|'analytics'|'study'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendar'|'conflicts'|'slots'|'tasks'|'analytics'|'study'|'batch'>('calendar');
   const [showCalendarView, setShowCalendarView] = useState(false);
   const [reminder, setReminder] = useState("");
   const [loadingReminder, setLoadingReminder] = useState(false);
@@ -58,6 +58,7 @@ export default function Home() {
   const [batchEvents, setBatchEvents] = useState<any[]>([]);
   const [batchName, setBatchName] = useState<string | null>(null);
   const [loadingBatchEvents, setLoadingBatchEvents] = useState(false);
+  const [activeBatchFilter, setActiveBatchFilter] = useState('all');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -366,6 +367,7 @@ export default function Home() {
     { id: 'analytics', icon: '📊', label: 'Analytics', action: fetchAnalytics },
     { id: 'score', icon: '🏆', label: 'Score', action: fetchProductivityScore },
     { id: 'email', icon: '📧', label: 'Email', action: () => setActiveSidebarItem('email') },
+    { id: 'batch', icon: '🏫', label: 'Batch Events', action: () => { setActiveSidebarItem('batch'); setActiveTab('batch'); } },
   ];
 
   if (loading) {
@@ -385,17 +387,12 @@ export default function Home() {
       <div style={{ minHeight: '100vh', background: '#060A14', color: '#E8EDF7', fontFamily: "'DM Sans', sans-serif", position: 'relative', overflow: 'hidden' }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap');
-          @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
           @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
           @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
           * { box-sizing: border-box; margin: 0; padding: 0; }
         `}</style>
-
-        {/* Background orbs */}
         <div style={{ position: 'fixed', top: -200, right: -200, width: 600, height: 600, background: 'radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
         <div style={{ position: 'fixed', bottom: -150, left: -150, width: 500, height: 500, background: 'radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)', pointerEvents: 'none' }}></div>
-
-        {/* Nav */}
         <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 48px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 40, height: 40, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🗓</div>
@@ -409,22 +406,17 @@ export default function Home() {
             <div style={{ background: 'rgba(52,211,153,0.08)', border: '0.5px solid rgba(52,211,153,0.2)', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: '#6EE7B7' }}>Live on Vercel</div>
           </div>
         </nav>
-
-        {/* Hero */}
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '80px 48px', animation: 'fadeUp 0.6s ease forwards' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(99,102,241,0.08)', border: '0.5px solid rgba(99,102,241,0.2)', borderRadius: 20, padding: '6px 16px', fontSize: 12, color: '#A5B4FC', marginBottom: 24 }}>
             <div style={{ width: 6, height: 6, background: '#6366F1', borderRadius: '50%', animation: 'pulse 2s infinite' }}></div>
             AI-Powered Academic Schedule Management
           </div>
-
           <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 56, fontWeight: 700, lineHeight: 1.1, marginBottom: 20, background: 'linear-gradient(135deg, #E8EDF7 0%, #A5B4FC 50%, #34D399 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             Manage Your Schedule<br />With Intelligence
           </h1>
-
           <p style={{ fontSize: 18, color: '#8899BB', lineHeight: 1.7, marginBottom: 40, maxWidth: 560 }}>
             Connect Google Calendar, detect conflicts, find free study slots, and get AI-powered scheduling assistance — all in one beautiful platform.
           </p>
-
           <div style={{ display: 'flex', gap: 16, marginBottom: 64 }}>
             <button onClick={signIn} style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: 'white', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 500, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 8px 32px rgba(99,102,241,0.3)' }}>
               <span style={{ fontSize: 18 }}>G</span> Sign in with Google
@@ -433,23 +425,14 @@ export default function Home() {
               View Live Demo →
             </div>
           </div>
-
-          {/* Stats */}
           <div style={{ display: 'flex', gap: 48, marginBottom: 64 }}>
-            {[
-              { num: '14+', label: 'API Endpoints' },
-              { num: 'AI', label: 'LangChain Agent' },
-              { num: '4', label: 'Google APIs' },
-              { num: 'Live', label: 'Vercel Deploy' },
-            ].map((s, i) => (
+            {[{ num: '14+', label: 'API Endpoints' }, { num: 'AI', label: 'LangChain Agent' }, { num: '4', label: 'Google APIs' }, { num: 'Live', label: 'Vercel Deploy' }].map((s, i) => (
               <div key={i} style={{ textAlign: 'center' }}>
                 <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 700, color: '#E8EDF7' }}>{s.num}</div>
                 <div style={{ fontSize: 12, color: '#6B7A99', marginTop: 4 }}>{s.label}</div>
               </div>
             ))}
           </div>
-
-          {/* Feature Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {[
               { icon: '⚡', title: 'Conflict Detection', desc: 'Auto-detect overlapping events and get smart resolution suggestions', color: '#6366F1' },
@@ -459,15 +442,13 @@ export default function Home() {
               { icon: '📧', title: 'Email Reminders', desc: 'Schedule reminders and weekly summaries via Gmail SMTP', color: '#8B5CF6' },
               { icon: '🏆', title: 'Productivity Score', desc: 'Get your productivity grade from A+ to F with detailed breakdown', color: '#06B6D4' },
             ].map((f, i) => (
-              <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 24, cursor: 'default', transition: 'all 0.2s' }}>
+              <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 24 }}>
                 <div style={{ width: 40, height: 40, background: `${f.color}18`, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 14 }}>{f.icon}</div>
                 <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 600, color: '#C5D0E8', marginBottom: 6 }}>{f.title}</div>
                 <div style={{ fontSize: 12, color: '#6B7A99', lineHeight: 1.6 }}>{f.desc}</div>
               </div>
             ))}
           </div>
-
-          {/* Team */}
           <div style={{ marginTop: 64, padding: 32, background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Built by Team</div>
@@ -498,7 +479,6 @@ export default function Home() {
 
       {/* Sidebar */}
       <div style={{ width: 220, background: '#070B16', borderRight: '0.5px solid rgba(255,255,255,0.06)', padding: '20px 0', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0 }}>
-        {/* Logo */}
         <div style={{ padding: '0 16px 20px', borderBottom: '0.5px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🗓</div>
@@ -508,8 +488,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {/* Nav Items */}
         <div style={{ flex: 1, overflow: 'auto' }}>
           <div style={{ fontSize: 9, color: '#3A4558', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0 16px 6px' }}>Main</div>
           {sidebarItems.slice(0, 4).map(item => (
@@ -518,7 +496,6 @@ export default function Home() {
               <span>{item.icon}</span> {item.label}
             </div>
           ))}
-
           <div style={{ fontSize: 9, color: '#3A4558', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '12px 16px 6px' }}>AI Tools</div>
           {sidebarItems.slice(4, 7).map(item => (
             <div key={item.id} onClick={item.action}
@@ -526,17 +503,24 @@ export default function Home() {
               <span>{item.icon}</span> {item.label}
             </div>
           ))}
-
           <div style={{ fontSize: 9, color: '#3A4558', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '12px 16px 6px' }}>Insights</div>
-          {sidebarItems.slice(7).map(item => (
+          {sidebarItems.slice(7, 10).map(item => (
             <div key={item.id} onClick={item.action}
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', fontSize: 13, color: activeSidebarItem === item.id ? '#A5B4FC' : '#6B7A99', cursor: 'pointer', background: activeSidebarItem === item.id ? 'rgba(99,102,241,0.08)' : 'transparent', borderRight: activeSidebarItem === item.id ? '2px solid #6366F1' : '2px solid transparent', transition: 'all 0.15s' }}>
               <span>{item.icon}</span> {item.label}
             </div>
           ))}
+          <div style={{ fontSize: 9, color: '#3A4558', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '12px 16px 6px' }}>College</div>
+          {sidebarItems.slice(10).map(item => (
+            <div key={item.id} onClick={item.action}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', fontSize: 13, color: activeSidebarItem === item.id ? '#A5B4FC' : '#6B7A99', cursor: 'pointer', background: activeSidebarItem === item.id ? 'rgba(99,102,241,0.08)' : 'transparent', borderRight: activeSidebarItem === item.id ? '2px solid #6366F1' : '2px solid transparent', transition: 'all 0.15s' }}>
+              <span>{item.icon}</span> {item.label}
+              {batchEvents.length > 0 && item.id === 'batch' && (
+                <span style={{ marginLeft: 'auto', background: 'rgba(99,102,241,0.2)', color: '#A5B4FC', fontSize: 9, padding: '1px 6px', borderRadius: 4 }}>{batchEvents.length}</span>
+              )}
+            </div>
+          ))}
         </div>
-
-        {/* User */}
         <div style={{ padding: '16px', borderTop: '0.5px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             {user.photoURL
@@ -556,8 +540,6 @@ export default function Home() {
 
       {/* Main Content */}
       <div style={{ flex: 1, overflow: 'auto', padding: 28 }}>
-
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
             <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 600, marginBottom: 4 }}>
@@ -583,7 +565,7 @@ export default function Home() {
             { label: 'Events Loaded', value: events.length, sub: `${todayEvents.length} today`, color: '#6366F1', bg: 'rgba(99,102,241,0.08)' },
             { label: 'Conflicts', value: conflicts.length, sub: conflicts.length === 0 ? '✓ Clean' : '⚠ Check now', color: conflicts.length > 0 ? '#F87171' : '#34D399', bg: conflicts.length > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(52,211,153,0.08)' },
             { label: 'Tasks Due', value: tasks.length, sub: `${weekEvents.length} this week`, color: '#F59E0B', bg: 'rgba(245,158,11,0.08)' },
-            { label: 'Free Slots', value: freeSlots.length, sub: 'Available study time', color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)' },
+            { label: 'Batch Events', value: batchEvents.length, sub: batchName || 'No batch assigned', color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)' },
           ].map((m, i) => (
             <div key={i} style={{ background: m.bg, border: `0.5px solid ${m.color}22`, borderRadius: 12, padding: 16 }}>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 700, color: m.color }}>{m.value}</div>
@@ -605,53 +587,54 @@ export default function Home() {
           </div>
         )}
 
-        {/* Batch Schedule (Faculty-assigned events) */}
+        {/* Batch Schedule Card */}
         {batchEvents.length > 0 && (
           <div style={{ background: 'rgba(99,102,241,0.06)', border: '0.5px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: 20, marginBottom: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <span style={{ fontSize: 14, fontWeight: 500, color: '#A5B4FC' }}>🏫 {batchName} — Batch Schedule</span>
-              <span style={{ fontSize: 11, color: '#6B7A99' }}>{batchEvents.length} event{batchEvents.length !== 1 ? 's' : ''}</span>
+              <button onClick={() => { setActiveTab('batch'); setActiveSidebarItem('batch'); }} style={{ background: 'rgba(99,102,241,0.15)', border: '0.5px solid rgba(99,102,241,0.3)', color: '#A5B4FC', padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                View All →
+              </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {batchEvents.map((event: any) => {
-                const typeColor =
-                  event.type === 'exam' ? '#F87171' :
-                  event.type === 'holiday' ? '#34D399' :
-                  event.type === 'deadline' ? '#FCD34D' : '#6366F1';
+              {batchEvents.slice(0, 3).map((event: any) => {
+                const typeColor = event.type === 'exam' ? '#F87171' : event.type === 'holiday' ? '#34D399' : event.type === 'deadline' ? '#FCD34D' : '#6366F1';
                 return (
-                  <div key={event.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
+                  <div key={event.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 8 }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: '#C5D0E8', fontWeight: 500 }}>{event.title}</div>
-                      {event.description && <div style={{ fontSize: 11, color: '#8899BB', marginTop: 2 }}>{event.description}</div>}
-                      <div style={{ fontSize: 11, color: '#4A5568', marginTop: 4 }}>
-                        {new Date(event.startTime).toLocaleString()} — {new Date(event.endTime).toLocaleString()}
-                      </div>
+                      <div style={{ fontSize: 11, color: '#4A5568', marginTop: 2 }}>{new Date(event.startTime).toLocaleDateString()}</div>
                     </div>
-                    <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 6, background: `${typeColor}18`, color: typeColor, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 6, background: `${typeColor}18`, color: typeColor, fontWeight: 500, whiteSpace: 'nowrap' as const }}>
                       {event.type}
                     </span>
                   </div>
                 );
               })}
+              {batchEvents.length > 3 && (
+                <button onClick={() => { setActiveTab('batch'); setActiveSidebarItem('batch'); }} style={{ background: 'none', border: 'none', color: '#6366F1', fontSize: 12, cursor: 'pointer', textAlign: 'left' as const, padding: '4px 0' }}>
+                  +{batchEvents.length - 3} more events →
+                </button>
+              )}
             </div>
           </div>
         )}
 
-        {/* No batch assigned message */}
+        {/* No batch message */}
         {batchEvents.length === 0 && !loadingBatchEvents && (
           <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 20px', marginBottom: 20, fontSize: 12, color: '#4A5568' }}>
-            🏫 No batch assigned yet — your faculty hasn't added you to a class group.
+            🏫 No batch assigned yet — ask your faculty to add you to a class group.
           </div>
         )}
 
-        {/* Calendar View */}
+        {/* FullCalendar */}
         {showCalendarView && (
           <div style={{ marginBottom: 20 }}>
             <FullCalendarView events={events} conflicts={conflicts} />
           </div>
         )}
 
-        {/* Notifications */}
+        {/* Reminder */}
         {reminder && (
           <div style={{ background: 'rgba(245,158,11,0.06)', border: '0.5px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -662,6 +645,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* Predictions */}
         {predictions && (
           <div style={{ background: 'rgba(236,72,153,0.06)', border: '0.5px solid rgba(236,72,153,0.2)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -703,7 +687,7 @@ export default function Home() {
                   <div style={{ flex: 1, background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 6 }}>
                     <div style={{ width: `${(item.score / item.max) * 100}%`, background: '#34D399', height: 6, borderRadius: 4 }}></div>
                   </div>
-                  <span style={{ fontSize: 11, color: '#6B7A99', width: 40, textAlign: 'right' }}>{item.score}/{item.max}</span>
+                  <span style={{ fontSize: 11, color: '#6B7A99', width: 40, textAlign: 'right' as const }}>{item.score}/{item.max}</span>
                 </div>
               ))}
             </div>
@@ -712,10 +696,9 @@ export default function Home() {
 
         {/* Main Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-
           {/* Quick Actions */}
           <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#8899BB', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>⚡ Quick Actions</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#8899BB', marginBottom: 14 }}>⚡ Quick Actions</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {[
                 { icon: '🔄', label: 'Load Calendar', action: fetchCalendar, loading: loadingEvents, color: '#6366F1' },
@@ -750,12 +733,9 @@ export default function Home() {
                 )}
               </div>
             </div>
-
             <div style={{ flex: 1, maxHeight: 200, overflowY: 'auto', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {chatHistory.length === 0 && (
-                <div style={{ fontSize: 12, color: '#4A5568', textAlign: 'center', padding: '20px 0' }}>
-                  Ask me about your schedule...
-                </div>
+                <div style={{ fontSize: 12, color: '#4A5568', textAlign: 'center', padding: '20px 0' }}>Ask me about your schedule...</div>
               )}
               {chatHistory.map((msg, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
@@ -774,15 +754,10 @@ export default function Home() {
                 </div>
               )}
             </div>
-
             <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !isAiThinking && askAI()}
+              <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !isAiThinking && askAI()}
                 placeholder="Ask about your schedule..."
-                style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#C5D0E8', outline: 'none' }}
-              />
+                style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#C5D0E8', outline: 'none' }} />
               <button onClick={startVoiceInput} style={{ background: isListening ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px', cursor: 'pointer', fontSize: 14 }}>
                 {isListening ? '🔴' : '🎤'}
               </button>
@@ -793,19 +768,12 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Email + Study Plan Row */}
+        {/* Email + Study Plan */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-
-          {/* Email */}
           <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: '#8899BB', marginBottom: 14 }}>📧 Email Notifications</div>
-            <input
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-              placeholder="your@email.com"
-              type="email"
-              style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#C5D0E8', outline: 'none', marginBottom: 10 }}
-            />
+            <input value={emailInput} onChange={(e) => setEmailInput(e.target.value)} placeholder="your@email.com" type="email"
+              style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#C5D0E8', outline: 'none', marginBottom: 10 }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={sendEmail} disabled={sendingEmail} style={{ flex: 1, background: 'rgba(236,72,153,0.1)', border: '0.5px solid rgba(236,72,153,0.25)', color: '#F472B6', padding: '9px', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>
                 {sendingEmail ? 'Sending...' : emailSent ? '✅ Sent!' : '📧 Send Reminder'}
@@ -815,24 +783,13 @@ export default function Home() {
               </button>
             </div>
           </div>
-
-          {/* Study Plan */}
           <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: '#8899BB', marginBottom: 14 }}>🎓 Study Plan Generator</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-              <input
-                value={studySubject}
-                onChange={(e) => setStudySubject(e.target.value)}
-                placeholder="Subject (e.g. Data Structures)"
-                style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#C5D0E8', outline: 'none' }}
-              />
-              <input
-                value={studyHours}
-                onChange={(e) => setStudyHours(e.target.value)}
-                type="number"
-                placeholder="Hrs"
-                style={{ width: 60, background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 8px', fontSize: 12, color: '#C5D0E8', outline: 'none' }}
-              />
+              <input value={studySubject} onChange={(e) => setStudySubject(e.target.value)} placeholder="Subject (e.g. Data Structures)"
+                style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#C5D0E8', outline: 'none' }} />
+              <input value={studyHours} onChange={(e) => setStudyHours(e.target.value)} type="number" placeholder="Hrs"
+                style={{ width: 60, background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 8px', fontSize: 12, color: '#C5D0E8', outline: 'none' }} />
             </div>
             <button onClick={generateStudyPlan} disabled={loadingStudyPlan} style={{ width: '100%', background: 'linear-gradient(135deg,rgba(245,158,11,0.15),rgba(245,158,11,0.08))', border: '0.5px solid rgba(245,158,11,0.3)', color: '#FCD34D', padding: '10px', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>
               {loadingStudyPlan ? 'Generating...' : '✨ Generate AI Study Plan'}
@@ -840,10 +797,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Content Tabs */}
+        {/* Tabs */}
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 12, overflow: 'hidden' }}>
-
-          {/* Tab Bar */}
           <div style={{ display: 'flex', borderBottom: '0.5px solid rgba(255,255,255,0.06)', overflow: 'auto' }}>
             {[
               { key: 'calendar', label: `📅 Events (${events.length})` },
@@ -852,6 +807,7 @@ export default function Home() {
               { key: 'tasks', label: `✅ Tasks (${tasks.length})` },
               { key: 'analytics', label: '📊 Analytics' },
               { key: 'study', label: '🎓 Study Plan' },
+              { key: 'batch', label: `🏫 Batch (${batchEvents.length})` },
             ].map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
                 style={{ padding: '12px 18px', fontSize: 12, color: activeTab === tab.key ? '#A5B4FC' : '#6B7A99', background: activeTab === tab.key ? 'rgba(99,102,241,0.08)' : 'transparent', border: 'none', borderBottom: activeTab === tab.key ? '2px solid #6366F1' : '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
@@ -860,22 +816,15 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Tab Content */}
-          <div style={{ padding: 20, maxHeight: 400, overflowY: 'auto' }}>
+          <div style={{ padding: 20, maxHeight: 500, overflowY: 'auto' }}>
 
             {/* Calendar Tab */}
             {activeTab === 'calendar' && (
               <div>
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="🔍 Search events..."
-                  style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#C5D0E8', outline: 'none', marginBottom: 14 }}
-                />
+                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="🔍 Search events..."
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#C5D0E8', outline: 'none', marginBottom: 14 }} />
                 {events.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#4A5568', fontSize: 13 }}>
-                    Click "🔄 Load Calendar" to sync your events
-                  </div>
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#4A5568', fontSize: 13 }}>Click "🔄 Load Calendar" to sync your events</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {events.filter((e: any) => e.summary?.toLowerCase().includes(searchQuery.toLowerCase())).map((event: any) => (
@@ -993,8 +942,7 @@ export default function Home() {
                               <span style={{ fontSize: 12, color: '#C5D0E8' }}>{plan.subject} — {plan.hours}h</span>
                               <span style={{ fontSize: 11, color: '#4A5568', marginLeft: 8 }}>{new Date(plan.createdAt).toLocaleDateString()}</span>
                             </div>
-                            <button onClick={() => { setStudyPlan(plan.plan); setStudySubject(plan.subject); }}
-                              style={{ background: 'none', border: 'none', color: '#6366F1', fontSize: 11, cursor: 'pointer' }}>Load →</button>
+                            <button onClick={() => { setStudyPlan(plan.plan); setStudySubject(plan.subject); }} style={{ background: 'none', border: 'none', color: '#6366F1', fontSize: 11, cursor: 'pointer' }}>Load →</button>
                           </div>
                         ))}
                       </div>
@@ -1003,9 +951,95 @@ export default function Home() {
                 )}
               </div>
             )}
+
+            {/* Batch Events Tab */}
+            {activeTab === 'batch' && (
+              <div>
+                {batchEvents.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <div style={{ fontSize: 32, marginBottom: 12 }}>🏫</div>
+                    <div style={{ fontSize: 14, color: '#6B7A99', fontWeight: 500 }}>
+                      {batchName ? `No upcoming events in ${batchName}` : 'You are not assigned to a batch yet'}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#4A5568', marginTop: 6 }}>Ask your faculty to assign you to a batch</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#A5B4FC' }}>🏫 {batchName}</div>
+                      <div style={{ fontSize: 11, color: '#6B7A99' }}>{batchEvents.length} event{batchEvents.length !== 1 ? 's' : ''}</div>
+                    </div>
+
+                    {/* Filter buttons */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' as const }}>
+                      {['all', 'exam', 'class', 'deadline', 'holiday'].map(type => (
+                        <button key={type} onClick={() => setActiveBatchFilter(type)}
+                          style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: 'none', background: activeBatchFilter === type ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: activeBatchFilter === type ? '#A5B4FC' : '#6B7A99', fontWeight: activeBatchFilter === type ? 600 : 400 }}>
+                          {type === 'all' ? '🔀 All' : type === 'exam' ? '📝 Exams' : type === 'class' ? '📚 Classes' : type === 'deadline' ? '⏰ Deadlines' : '🎉 Holidays'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Events list */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {batchEvents
+                        .filter(e => activeBatchFilter === 'all' || e.type === activeBatchFilter)
+                        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                        .map((event: any) => {
+                          const start = new Date(event.startTime);
+                          const now = new Date();
+                          const isPast = start < now;
+                          const diff = start.getTime() - now.getTime();
+                          const daysLeft = Math.floor(diff / (1000 * 60 * 60 * 24));
+                          const hoursLeft = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                          const typeColor = event.type === 'exam' ? '#F87171' : event.type === 'holiday' ? '#34D399' : event.type === 'deadline' ? '#FCD34D' : '#6366F1';
+                          const typeEmoji = event.type === 'exam' ? '📝' : event.type === 'holiday' ? '🎉' : event.type === 'deadline' ? '⏰' : '📚';
+                          return (
+                            <div key={event.id} style={{ background: isPast ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)', border: `0.5px solid ${isPast ? 'rgba(255,255,255,0.04)' : typeColor + '30'}`, borderRadius: 10, padding: '14px 16px', opacity: isPast ? 0.5 : 1 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                    <span style={{ fontSize: 16 }}>{typeEmoji}</span>
+                                    <span style={{ fontSize: 13, fontWeight: 500, color: '#C5D0E8' }}>{event.title}</span>
+                                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: `${typeColor}18`, color: typeColor, fontWeight: 500 }}>{event.type}</span>
+                                  </div>
+                                  {event.description && (
+                                    <div style={{ fontSize: 11, color: '#8899BB', marginBottom: 6, marginLeft: 24 }}>{event.description}</div>
+                                  )}
+                                  <div style={{ fontSize: 11, color: '#4A5568', marginLeft: 24 }}>
+                                    📅 {start.toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })}
+                                  </div>
+                                </div>
+                                <div style={{ textAlign: 'center', minWidth: 80, marginLeft: 12 }}>
+                                  {isPast ? (
+                                    <div style={{ fontSize: 10, color: '#4A5568', padding: '4px 8px', background: 'rgba(255,255,255,0.04)', borderRadius: 6 }}>Completed</div>
+                                  ) : daysLeft > 0 ? (
+                                    <div>
+                                      <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, color: typeColor, lineHeight: 1 }}>{daysLeft}</div>
+                                      <div style={{ fontSize: 10, color: '#6B7A99', marginTop: 2 }}>days left</div>
+                                    </div>
+                                  ) : hoursLeft > 0 ? (
+                                    <div>
+                                      <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, color: '#F59E0B', lineHeight: 1 }}>{hoursLeft}h</div>
+                                      <div style={{ fontSize: 10, color: '#6B7A99', marginTop: 2 }}>hours left</div>
+                                    </div>
+                                  ) : (
+                                    <div style={{ fontSize: 10, color: '#F87171', fontWeight: 600 }}>Today!</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}
